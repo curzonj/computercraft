@@ -3,6 +3,7 @@ local contents_name = tArgs[1]
 
 if ( not contents_name ) then
   print "No script name received"
+  exit()
 end
  
 local repo = "curzonj/computercraft/master"
