@@ -1,5 +1,9 @@
 local tArgs = { ... }
 local contents_name = tArgs[1]
+
+if ( not contents_name ) then
+  print "No script name received"
+end
  
 local repo = "curzonj/computercraft/master"
 local contents_url = "https://raw.github.com/" .. repo .. "/" .. contents_name .. ".lua"
