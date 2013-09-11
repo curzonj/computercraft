@@ -18,7 +18,7 @@ if(request) then
   file.write(response)
   file.close()
  
-  os.run({}, contents_name, unpack(tArgs))
+  os.run({}, contents_name)
 else
   print "Failed to fetch file"
 end
