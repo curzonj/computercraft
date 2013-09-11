@@ -5,6 +5,8 @@ if ( not contents_name ) then
   print("No script name received")
   return true
 end
+
+tArgs.remove(1)
  
 local repo = "curzonj/computercraft/master"
 local contents_url = "https://raw.github.com/" .. repo .. "/" .. contents_name .. ".lua"
@@ -18,7 +20,7 @@ if(request) then
   file.write(response)
   file.close()
  
-  os.run({}, contents_name)
+  os.run({}, contents_name, unpack(tArgs))
 else
   print "Failed to fetch file"
 end
