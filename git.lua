@@ -6,8 +6,6 @@ if ( not contents_name ) then
   return true
 end
 
-tArgs.remove(1)
- 
 local repo = "curzonj/computercraft/master"
 local contents_url = "https://raw.github.com/" .. repo .. "/" .. contents_name .. ".lua"
  
