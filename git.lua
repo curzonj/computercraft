@@ -1,3 +1,5 @@
+-- pastebin get Vqi7FLWB
+
 local tArgs = { ... }
 local contents_name = tArgs[1]
 
