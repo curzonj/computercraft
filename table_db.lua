@@ -17,14 +17,14 @@ function write(name, tableInfo)
     local handle = io.open(path, "w")
     
     for key, value in pairs(tableInfo) do
-      handle:write(tostring(key))
+      handle:write(key)
       handle:write("\n")
       
       if value == nil then
           value = "---nil---"
       end
       
-      handle:write(tostring(value))
+      handle:write(value)
       handle:write("\n")
     end
     
