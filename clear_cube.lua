@@ -3,6 +3,103 @@ os.loadAPI('table_db')
 
 table_db.init()
 
+---- Stack API
+
+-- Create a Table with stack functions
+function create_stack()
+
+  -- stack table
+  local t = {}
+  -- entry table
+  t._et = {}
+
+  -- push a value on to the stack
+  function t:push(...)
+    if ... then
+      local targs = {...}
+      -- add values
+      for _,v in pairs(targs) do
+        table.insert(self._et, v)
+      end
+    end
+  end
+
+  -- pop a value from the stack
+  function t:pop(num)
+
+    -- get num values from stack
+    local num = num or 1
+
+    -- return table
+    local entries = {}
+
+    -- get values into entries
+    for i = 1, num do
+      -- get last entry
+      if #self._et ~= 0 then
+        table.insert(entries, self._et[#self._et])
+        -- remove last value
+        table.remove(self._et)
+      else
+        break
+      end
+    end
+    -- return unpacked entries
+    return unpack(entries)
+  end
+
+  -- get entries
+  function t:getn()
+    return #self._et
+  end
+
+  -- list values
+  function t:list()
+    for i,v in pairs(self._et) do
+      print(i, v)
+    end
+  end
+  return t
+end
+
+
+---- Persistance API
+
+local startupBackup = "startup_bak"
+
+function relaunchAtStartup(program_name)
+      program_name = program_name or shell.getRunningProgram()
+      
+      if (fs.exists("startup") == true) then
+        fs.delete(startupBackup)
+        fs.copy("startup", startupBackup)
+        outputFile = io.open("startup", "a")
+      else
+        outputFile = io.open("startup", "w")
+      end
+      
+      -- Write an info message so that people know how to get out of auto-resume
+      outputFile:write("\nprint(\"Running auto-restart...\")\n")
+      outputFile:write("print(\"If you want to stop auto-resume and restore original state:\")\n")
+      outputFile:write("print(\"1) Hold Ctrl-T until the program terminates\")\n")
+      outputFile:write("print(\"2) Type \\\"rm startup\\\" (without quotes) and hit Enter\")\n")
+      outputFile:write("print(\"\")\n\n")
+
+      -- Write the code required to restart the turtle
+      outputFile:write("shell.run(\"")
+      outputFile:write(program_name)
+      outputFile:write("\")\n")
+      outputFile:close()
+end
+
+function cancelRelaunchAtStartup()
+      fs.delete("startup")
+      if (fs.exists(startupBackup) == true) then
+        fs.move(startupBackup, "startup")
+      end
+end
+
+
 ----- Move API
 -- dig is redundant on all methodcalls
 
@@ -34,8 +131,8 @@ local current_facing = "front"
 local coordinate_offsets = { frontback = 0, y = 0, leftright = 0 }
 
 function saveLocation()
-    hapi.report("saving coordinates", coordinate_offsets)
     table_db.write("coordinate_offsets", coordinate_offsets)
+    hapi.report("saved coordinates", coordinate_offsets)
 end
 
 function update_coordinate_offsets(direction)
@@ -69,8 +166,6 @@ function update_coordinate_offsets(direction)
     end
     
     coordinate_offsets[axis] = coordinate_offsets[axis] + offset
-     
-    saveLocation()
 end
 
 function move(direction, times)
@@ -80,6 +175,17 @@ function move(direction, times)
         move_once(direction)
         times = times - 1
     end
+end
+
+function atomic_move(direction)
+    moveResult = turtle_call("move", direction)
+    
+    if (moveResult == true) then
+        update_coordinate_offsets(direction)
+        saveLocation()
+    end
+
+    return moveResult    
 end
 
 function move_once(direction)
@@ -109,10 +215,8 @@ function move_once(direction)
             turtle_call("attack", direction)
         end
         
-        moveResult = turtle_call("move", direction)
+        moveResult = atomic_move(direction)
     end
-    
-    update_coordinate_offsets(direction)
 end
 
 -- [current_facing][target_facing]
@@ -169,52 +273,83 @@ function orient(direction)
     end
 end
 
-function uturn(direction)
-    if (direction == nil) then
-        orient(opposite_directions[current_facing])
-    elseif (direction == "up" or direction == "down") then
-        move(direction)
-        orient(opposite_directions[current_facing])
-    else
-        local was_facing = current_facing
-        orient(direction)
-        move("forward")
-        orient(opposite_directions[was_facing])
+
+function move_to(target)
+    if (target["y"]) then
+        if (coordinate_offsets["y"] > target["y"]) then
+            move("down", coordinate_offsets["y"])
+        elseif (coordinate_offsets["y"] < target["y"]) then
+            move("up", 0 - coordinate_offsets["y"])
+        end 
+    end
+
+    if (target["frontback"]) then
+        if (coordinate_offsets["frontback"] > target["frontback"]) then
+            orient("back")
+            move("forward", coordinate_offsets["frontback"])
+        elseif (coordinate_offsets["frontback"] < target["frontback"]) then
+            orient("front")
+            move("forward", 0 - coordinate_offsets["frontback"])
+        end
+    end
+    
+    if (target["leftright"]) then
+        if (coordinate_offsets["leftright"] > target["leftright"]) then
+            orient("left")
+            move("forward", coordinate_offsets["leftright"])
+        elseif (coordinate_offsets["leftright"] < target["leftright"]) then
+            orient("right")
+            move("forward", 0 - coordinate_offsets["leftright"])
+        end
     end
 end
 
 local callbacks = {}
+local myStack = create_stack()
 
 function init(onFull)
     -- TODO should also check resume files
+    -- TODO we need a callback to look for good ores on each move
     callbacks["onFull"] = onFull
 end
 
-function returnHome()
-    hapi.report("return to y")
-    if (coordinate_offsets["y"] > 0) then
-        move("down", coordinate_offsets["y"])
-    elseif (coordinate_offsets["y"] < 0) then
-        move("up", 0 - coordinate_offsets["y"])
-    end 
+function stack(method_n, limits_n)
+    hapi.report("putting " .. method_n .. " on the stack", limits_n)
+    myStack:push({ method = method_n, limits = limits_n })
+end
 
-    hapi.report("return to frontback")
-    if (coordinate_offsets["frontback"] > 0) then
-        orient("back")
-        move("forward", coordinate_offsets["frontback"])
-    elseif (coordinate_offsets["frontback"] < 0) then
-        orient("front")
-        move("forward", 0 - coordinate_offsets["frontback"])
-    end
+function runStack(myCalltable)
+    local executingStack = create_stack()
+    local item = { method = "noop", limits = { } }
     
-    hapi.report("return to leftright")
-    if (coordinate_offsets["leftright"] > 0) then
-        orient("left")
-        move("forward", coordinate_offsets["leftright"])
-    elseif (coordinate_offsets["leftright"] < 0) then
-        orient("right")
-        move("forward", 0 - coordinate_offsets["leftright"])
-    end 
+    while (item) do
+      method_n = item["method"]
+      limits = item["limits"]
+      
+      while (limits_not_met(limits)) do
+          hapi.report("limits not met, calling " .. method_n, limits)
+          myCalltable[method_n](limits)
+      end
+      
+      local myItem = myStack:pop()
+    
+      while (myItem) do
+        executingStack:push(myItem)
+        myItem = myStack:pop()
+      end
+      
+      -- TODO save the stack here
+      
+      item = executingStack:pop()
+    end
+end
+
+function limits_not_met(target)
+    return (
+        ( target["y"] ~= nil and coordinate_offsets["y"] ~= target["y"] ) or
+        ( target["frontback"] ~= nil and coordinate_offsets["frontback"] ~= target["frontback"] ) or
+        ( target["leftright"] ~= nil and coordinate_offsets["leftright"] ~= target["leftright"] )
+    )
 end
 ------
 
@@ -223,35 +358,44 @@ local dig_direction = "down"
 local width = 2
 local depth = -2
 local distance = 2
-local exit_loop = false
-
-coordinate_offsets["dig_direction"] = dig_direction
 
 function onInventoryFull()
     print "my inventory is full"
 end
 
-function atDigLimits()
-    return ( (dig_direction == "down" and coordinate_offsets["y"] <= depth) or (dig_direction == "up" and coordinate_offsets["y"] >= 0) )
-end
+local calltable = { move_to = move_to }
 
-init(onInventoryFull)
-move("down")
-orient(quarry_side)
-
-while (not exit_loop) do
-    move("forward", (width-1))
-
-    if atDigLimits() then
-      if (coordinate_offsets["frontback"] >= distance) then
-          returnHome()
-          exit_loop = true
-      else
-          uturn("front")
-          dig_direction = opposite_directions[dig_direction]
-          coordinate_offsets["dig_direction"] = dig_direction
-      end
+-- TODO cutslice should be rewritten to only cut every 3rd row
+function calltable:cutslice(conditions)
+    stack("move", { frontback = coordinate_offsets["frontback"] + 1 })
+    
+    -- TODO a pattern matching cutline, refactor
+    if (coordinate_offsets["y"] == 0) then
+        stack("cutline", { y = depth })
     else
-      uturn(dig_direction)
+        stack("cutline", { y = 0 })
     end
 end
+
+function calltable:cutline(conditions)
+    if (coordinate_offsets["leftright"] == 0) then
+        stack("move_to", { leftright = width })
+    else
+        stack("move_to", { leftright = 0 })
+    end
+end
+
+
+function main()
+    -- relaunchAtStartup("tjwqb")
+    
+    init(onInventoryFull)
+
+    stack("cutslice", { frontback= distance })
+    stack("move_to", { frontback = 0, leftright = 0, y = 0 })
+    runStack(calltable)
+    
+    -- cancelRelaunchAtStartup()
+end
+
+main()
