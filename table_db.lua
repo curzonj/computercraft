@@ -13,18 +13,18 @@ function print(tableInfo)
 end
 
 function write(name, tableInfo)
-    local path = "checkpoint_db/" .. name
+    local path = "db_files/" .. name
     local handle = io.open(path, "w")
     
     for key, value in pairs(tableInfo) do
-      handle:write(key)
+      handle:write(tostring(key))
       handle:write("\n")
       
       if value == nil then
           value = "---nil---"
       end
       
-      handle:write(value)
+      handle:write(tostring(value))
       handle:write("\n")
     end
     
