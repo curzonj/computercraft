@@ -6,7 +6,7 @@ function init()
     end
 end
 
-function print(tableInfo)
+function printTable(tableInfo)
     for key, value in pairs(tableInfo) do
       print(key .. " = " .. tostring(value))
     end
