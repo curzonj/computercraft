@@ -322,20 +322,33 @@ function runStack(myCalltable)
     local executingStack = create_stack()
     local item = { method = "noop", limits = { } }
     
-    while (item) do
+    for inventoryLoop = 1, 4 do
+        if (item == nil) then
+            break
+        end
+        
       method_n = item["method"]
       limits = item["limits"]
       
-      while (limits_not_met(limits)) do
-          hapi.report("limits not met, calling " .. method_n, limits)
-          myCalltable[method_n](limits)
-      end
+      print(method_n)
+      table_db.printTable(limits)
+      table_db.printTable(coordinate_offsets)
       
-      local myItem = myStack:pop()
-    
-      while (myItem) do
-        executingStack:push(myItem)
-        myItem = myStack:pop()
+      if (limits_not_met(limits)) do
+          hapi.report("limits not met, executing " .. method_n, limits)
+          
+          -- we put the item back on the stack so that it can reevaluate the
+          -- limits when we finish what it asked us to do
+          executingStack:push(item)
+      
+          myCalltable[method_n](limits)
+          
+          local myItem = myStack:pop()
+        
+          while (myItem) do
+            executingStack:push(myItem)
+            myItem = myStack:pop()
+          end
       end
       
       -- TODO save the stack here
