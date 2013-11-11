@@ -1,8 +1,8 @@
 os.loadAPI('hapi')
 
-function ensureDB()
-    if (fs.isDir("table_db") == false) then
-        fs.makeDir("table_db")
+function init()
+    if (fs.isDir("db_files") == false) then
+        fs.makeDir("db_files")
     end
 end
 
@@ -32,7 +32,7 @@ function write(name, tableInfo)
 end
 
 function read(name)
-    local path = "table_db/" .. name
+    local path = "db_files/" .. name
     local handle = io.open(path, "r")
     
     if handle ~= nil then
