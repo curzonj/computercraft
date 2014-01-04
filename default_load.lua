@@ -1,3 +1,5 @@
+-- pastebin get X6kV6mBg
+
 shell.run("pastebin", "get", "w1RtfqFd", "market")
 shell.run("market", "get", "gjdhav", "at", "y")
 shell.run("market", "get", "gjdhrg", "cube", "y")
