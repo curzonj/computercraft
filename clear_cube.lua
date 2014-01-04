@@ -4,6 +4,32 @@ os.loadAPI('hapi')
 os.loadAPI('table_db')
 
 table_db.init()
+local messageOutputFileName = "tjwqb.log"
+
+function writeMessage(message, table)
+    print(message)
+
+    if (messageOutputFileName ~= nil) then
+      -- Open file, write message and close file (flush doesn't seem to work!)
+      local outputFile
+      if (fs.exists(messageOutputFileName) == true) then
+        outputFile = io.open(messageOutputFileName, "a")
+      else
+        outputFile = io.open(messageOutputFileName, "w")
+      end
+
+      outputFile:write(message)
+      if (table ~= nil) then
+          outputFile:write(" ")
+          for key, value in pairs(table) do
+            outputFile:write(key .. "=" .. tostring(value) .. ", ")
+          end
+      end
+      
+      outputFile:write("\n")
+      outputFile:close()
+    end
+end
 
 ---- Stack API
 
@@ -134,7 +160,6 @@ local coordinate_offsets = { frontback = 0, y = 0, leftright = 0 }
 
 function saveLocation()
     table_db.write("coordinate_offsets", coordinate_offsets)
-    hapi.report("saved coordinates", coordinate_offsets)
 end
 
 function update_coordinate_offsets(direction)
@@ -173,6 +198,8 @@ end
 function move(direction, times)
     times = times or 1
     
+    print("moving " .. tostring(times) .. " in " .. direction .. " direction")
+    
     while (times > 0) do
         move_once(direction)
         times = times - 1
@@ -196,7 +223,7 @@ function move_once(direction)
     end
     
     local digResult = turtle_call("dig", direction)
-    local moveResult = turtle_call("move", direction) 
+    local moveResult = atomic_move(direction)
     local digCount = 0
     
     while (moveResult == false) do
@@ -270,8 +297,6 @@ function orient(direction)
         end
         
         current_facing = direction
-    else
-        error("Invalid orientation: " ..direction)
     end
 end
 
@@ -279,29 +304,29 @@ end
 function move_to(target)
     if (target["y"]) then
         if (coordinate_offsets["y"] > target["y"]) then
-            move("down", coordinate_offsets["y"])
+            move("down", coordinate_offsets["y"] - target["y"])
         elseif (coordinate_offsets["y"] < target["y"]) then
-            move("up", 0 - coordinate_offsets["y"])
+            move("up", target["y"] - coordinate_offsets["y"])
         end 
     end
 
     if (target["frontback"]) then
         if (coordinate_offsets["frontback"] > target["frontback"]) then
             orient("back")
-            move("forward", coordinate_offsets["frontback"])
+            move("forward", coordinate_offsets["frontback"] - target["frontback"])
         elseif (coordinate_offsets["frontback"] < target["frontback"]) then
             orient("front")
-            move("forward", 0 - coordinate_offsets["frontback"])
+            move("forward", target["frontback"] - coordinate_offsets["frontback"])
         end
     end
     
     if (target["leftright"]) then
         if (coordinate_offsets["leftright"] > target["leftright"]) then
             orient("left")
-            move("forward", coordinate_offsets["leftright"])
+            move("forward", coordinate_offsets["leftright"] - target["leftright"])
         elseif (coordinate_offsets["leftright"] < target["leftright"]) then
             orient("right")
-            move("forward", 0 - coordinate_offsets["leftright"])
+            move("forward", target["leftright"] - coordinate_offsets["leftright"])
         end
     end
 end
@@ -316,41 +341,44 @@ function init(onFull)
 end
 
 function stack(method_n, limits_n)
-    hapi.report("putting " .. method_n .. " on the stack", limits_n)
+    writeMessage("putting " .. method_n .. " on the stack", limits_n)
     myStack:push({ method = method_n, limits = limits_n })
 end
 
-function runStack(myCalltable)
-    local executingStack = create_stack()
-    local item = { method = "noop", limits = { } }
-    
-    for inventoryLoop = 1, 4 do
-        if (item == nil) then
-            break
-        end
-        
-      method_n = item["method"]
-      limits = item["limits"]
-      
-      print(method_n)
-      table_db.printTable(limits)
-      table_db.printTable(coordinate_offsets)
-      
-      if (limits_not_met(limits)) do
-          hapi.report("limits not met, executing " .. method_n, limits)
-          
-          -- we put the item back on the stack so that it can reevaluate the
-          -- limits when we finish what it asked us to do
-          executingStack:push(item)
-      
-          myCalltable[method_n](limits)
-          
+function flipTheStacks(executingStack)
           local myItem = myStack:pop()
         
           while (myItem) do
             executingStack:push(myItem)
             myItem = myStack:pop()
           end
+end
+
+function runStack(myCalltable)
+    local executingStack = create_stack()
+    
+    flipTheStacks(executingStack)
+    local item = executingStack:pop()
+    
+    while (true) do
+        if (item == nil) then
+            print "item is nil ending loop"
+            break
+        end
+        
+      local method_n = item["method"]
+      local limits = item["limits"]
+
+      if (limits_not_met(limits)) then
+          writeMessage("limits not met, executing " .. method_n, limits)
+          writeMessage("current coords", coordinate_offsets)
+
+          -- we put the item back on the stack so that it can reevaluate the
+          -- limits when we finish what it asked us to do
+          executingStack:push(item)
+      
+          myCalltable[method_n](limits)
+          flipTheStacks(executingStack)
       end
       
       -- TODO save the stack here
@@ -370,9 +398,9 @@ end
 
 local quarry_side = "right"
 local dig_direction = "down"
-local width = 2
-local depth = -2
-local distance = 2
+local width = 3 - 1
+local depth = 1 - 3
+local distance = 3
 
 function onInventoryFull()
     print "my inventory is full"
@@ -381,18 +409,30 @@ end
 local calltable = { move_to = move_to }
 
 -- TODO cutslice should be rewritten to only cut every 3rd row
-function calltable:cutslice(conditions)
-    stack("move", { frontback = coordinate_offsets["frontback"] + 1 })
+calltable["cutslice"] = function(conditions)
+    stack("move_to", { frontback = coordinate_offsets["frontback"] + 1 })
+    
+    cutline()
     
     -- TODO a pattern matching cutline, refactor
     if (coordinate_offsets["y"] == 0) then
-        stack("cutline", { y = depth })
+        stack("cutstep", { y = depth })
     else
-        stack("cutline", { y = 0 })
+        stack("cutstep", { y = 0 })
     end
 end
 
-function calltable:cutline(conditions)
+calltable["cutstep"] = function(target)
+    if (target["y"] > coordinate_offsets["y"]) then
+        stack("move_to", { y = coordinate_offsets["y"] + 1 })
+    else
+        stack("move_to", { y = coordinate_offsets["y"] - 1 })
+    end
+    
+    cutline()
+end
+
+function cutline()
     if (coordinate_offsets["leftright"] == 0) then
         stack("move_to", { leftright = width })
     else
@@ -405,9 +445,10 @@ function main()
     -- relaunchAtStartup("tjwqb")
     
     init(onInventoryFull)
-
+    writeMessage("running main")
     stack("cutslice", { frontback= distance })
     stack("move_to", { frontback = 0, leftright = 0, y = 0 })
+    writeMessage("starting runStack")
     runStack(calltable)
     
     -- cancelRelaunchAtStartup()

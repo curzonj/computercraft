@@ -18,7 +18,7 @@ if(request) then
   file.write(response)
   file.close()
  
-  os.run({}, id)
+  shell.run(id)
 else
   print "Failed to fetch file"
 end
