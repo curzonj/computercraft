@@ -1,4 +1,4 @@
--- pastebin get eBpfyT64
+-- pastebin get vbeqWaRu load
 
 shell.run("pastebin", "get", "w1RtfqFd", "market")
 shell.run("market", "get", "gjdhav", "at", "y")
