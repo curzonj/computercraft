@@ -17,8 +17,8 @@ end
 
 function goback()
   if (fs.exists("resuming.txt") == false) then
-    turtle.right()
-    turtle.right()
+    turtle.turnRight()
+    turtle.turnRight()
 
     local locationFile = io.open("resuming.txt", "w")
     locationFile:write("\n")
