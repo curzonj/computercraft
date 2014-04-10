@@ -31,3 +31,7 @@ while (turtle.getItemCount(last_slot) < 1) do
     end
   end
 end
+
+for i=1, cLength do
+  turtle.back()
+end
