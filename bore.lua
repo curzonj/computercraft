@@ -16,27 +16,37 @@ function writeLocation(location)
 end
 
 function goback()
+  if (fs.exists("resuming.txt") == false) then
+    turtle.right()
+    turtle.right()
+
+    local locationFile = io.open("resuming.txt", "w")
+    locationFile:write("\n")
+    locationFile:close()
+  end
+
   local inputFile = fs.open(startupParamsFile, "r")
   local nextLine = inputFile.readLine()
   local backwards
   
   if (nextLine ~= nil) then
-    backwards = tonumber(nextLine)
-    local bLength = backwards;
+    local bLength = tonumber(nextLine)
     
-    for i=1, backwards do
-      turtle.back()
-      bLength = bLength - 1;
-      writeLocation(bLength);
+    while (bLength > 0) do
+      local bMoved = turtle.back()
+      if(bMoved)then
+        bLength = bLength - 1;
+        writeLocation(bLength);
+      else
+        turtle.dig()
+      end
     end
   else
     print("Failed to find location file")
   end
   
-  if (fs.exists(startupParamsFile) == true) then
-    fs.delete(startupParamsFile)
-  end
-
+  fs.delete(startupParamsFile)
+  fs.delete("resuming.txt")
   fs.delete("startup")
 end
 
@@ -62,7 +72,7 @@ outputFile:close()
   
 while (turtle.getItemCount(last_slot) < 1) do
   repeat turtle.dig(); os.sleep(0.1); bDetect = turtle.detect(); until bDetect == false;
-  bMoved = turtle.forward();
+  local bMoved = turtle.forward();
   if(bMoved)then
     cLength = cLength + 1;
     writeLocation(cLength);
