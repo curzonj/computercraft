@@ -33,7 +33,7 @@ function goback()
     local bLength = tonumber(nextLine)
     
     while (bLength > 0) do
-      local bMoved = turtle.back()
+      local bMoved = turtle.forward()
       if(bMoved)then
         bLength = bLength - 1;
         writeLocation(bLength);
