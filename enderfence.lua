@@ -3,7 +3,7 @@ local size = tonumber(tArgs[1])
 local action = tArgs[2] or "build"
 local current_slot = 16
 
-if (size < 1) then
+if (size == nil) then
     error("Usage: enderfence 64 [remove]")
 end
 
