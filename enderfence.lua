@@ -3,6 +3,8 @@ local size = tonumber(tArgs[1])
 local action = tArgs[2] or "build"
 local current_slot = 16
 
+turtle.select(current_slot)
+
 if (size == nil) then
     error("Usage: enderfence 64 [remove]")
 end
@@ -24,6 +26,8 @@ function buildRow(rowSize)
     if action == "build" then
     while (turtle.getItemCount(current_slot) == 0) do
         current_slot = current_slot - 1
+        turtle.select(current_slot)
+
         if (current_slot == 0) then
             error("The turtle is empty")
         end
