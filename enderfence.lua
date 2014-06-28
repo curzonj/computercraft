@@ -16,9 +16,10 @@ function buildRow(rowSize)
     end
     
     local bMoved = turtle.forward()
-    while (!bMoved) do
+    while (not bMoved) do
             turtle.dig()
             turtle.attack();
+            bMoved = turtle.forward()
     end
     
     if turtle.detectUp() then
